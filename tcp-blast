@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+set -o nounset
+
+VERSION="1.1"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+TARGET=""
+PORTS=""
+THREADS=50
+TIMEOUT=1
+
+banner() {
+    echo -e "${CYAN}${BOLD}"
+    cat << "EOF"
+████████╗ ██████╗ ██████╗       ██████╗ ██╗      █████╗ ███████╗████████╗
+╚══██╔══╝██╔════╝ ██╔══██╗      ██╔══██╗██║     ██╔══██╗██╔════╝╚══██╔══╝
+   ██║   ██║  ███╗██████╔╝█████╗██████╔╝██║     ███████║███████╗   ██║
+   ██║   ██║   ██║██╔═══╝ ╚════╝██╔══██╗██║     ██╔══██║╚════██║   ██║
+   ██║   ╚██████╔╝██║           ██████╔╝███████╗██║  ██║███████║   ██║
+   ╚═╝    ╚═════╝ ╚═╝           ╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝
+EOF
+    echo -e "${NC}"
+    echo -e "                             ${BOLD}tcp-blast v$VERSION${NC} | ${YELLOW}Fast Bash TCP Port Scanner${NC}"
+    echo -e "                                                          ${BLUE}Made By @4nuxd${NC}"
+    echo -e "------------------------------------------------------------------------"
+}
+
+usage() {
+    banner
+    echo -e "\n${BOLD}Usage:${NC} $0 -t <target> -p <ports> [options]"
+    echo -e "\n${BOLD}Options:${NC}"
+    echo -e "  -t <ip|host>   Target IP or Hostname (Required)"
+    echo -e "  -p <ports>     Port range (1-1024) or list (80,443,22)"
+    echo -e "  -w <threads>   Parallel threads (Default: 50, Max: 5000)"
+    echo -e "  -o <timeout>   Timeout in seconds (Default: 1)"
+    echo -e "  -h             Show this help menu"
+    echo -e "  -v             Show version"
+    echo -e "\n${BOLD}Examples:${NC}"
+    echo -e "  $0 -t 127.0.0.1 -p 1-1000"
+    echo -e "  $0 -t dev.local -p 80,443,8080 -w 10"
+    exit 0
+}
+
+get_service() {
+    local port=$1
+    case "$port" in
+        20) echo "ftp-data" ;;
+        21) echo "ftp" ;;
+        22) echo "ssh" ;;
+        23) echo "telnet" ;;
+        25) echo "smtp" ;;
+        53) echo "dns" ;;
+        67) echo "dhcp-srv" ;;
+        68) echo "dhcp-cli" ;;
+        69) echo "tftp" ;;
+        80) echo "http" ;;
+        110) echo "pop3" ;;
+        123) echo "ntp" ;;
+        135) echo "msrpc" ;;
+        137) echo "netbios-ns" ;;
+        138) echo "netbios-dg" ;;
+        139) echo "netbios-ss" ;;
+        143) echo "imap" ;;
+        161) echo "snmp" ;;
+        389) echo "ldap" ;;
+        443) echo "https" ;;
+        445) echo "smb" ;;
+        514) echo "syslog" ;;
+        548) echo "afp" ;;
+        587) echo "smtp-sub" ;;
+        631) echo "ipp" ;;
+        636) echo "ldaps" ;;
+        873) echo "rsync" ;;
+        993) echo "imaps" ;;
+        995) echo "pop3s" ;;
+        1080) echo "socks" ;;
+        1433) echo "mssql" ;;
+        1521) echo "oracle" ;;
+        1883) echo "mqtt" ;;
+        2049) echo "nfs" ;;
+        2375) echo "docker-api" ;;
+        2376) echo "docker-tls" ;;
+        3000) echo "grafana" ;;
+        3306) echo "mysql" ;;
+        3389) echo "rdp" ;;
+        3690) echo "svn" ;;
+        4000) echo "ghost" ;;
+        4444) echo "metasploit" ;;
+        5000) echo "flask" ;;
+        5432) echo "postgres" ;;
+        5672) echo "rabbitmq" ;;
+        5900) echo "vnc" ;;
+        6379) echo "redis" ;;
+        8000) echo "http-alt" ;;
+        8080) echo "http-proxy" ;;
+        8081) echo "http-alt2" ;;
+        8443) echo "https-alt" ;;
+        8888) echo "jupyter" ;;
+        9000) echo "portainer" ;;
+        9042) echo "cassandra" ;;
+        9090) echo "prometheus" ;;
+        9200) echo "elasticsearch" ;;
+        10000) echo "webmin" ;;
+        11211) echo "memcached" ;;
+        27017) echo "mongodb" ;;
+        *) echo "unknown" ;;
+    esac
+}
+
+scan_port() {
+    local port="$1"
+    if timeout "$TIMEOUT" bash -c "</dev/tcp/$TARGET/$port" &>/dev/null; then
+        local service
+        service=$(get_service "$port")
+        printf "${GREEN}[+] %-6s  %-12s  OPEN${NC}\n" "$port" "$service"
+    fi
+}
+
+export -f scan_port get_service
+
+parse_ports() {
+    local input=$1
+    if [[ "$input" =~ ^[0-9]+-[0-9]+$ ]]; then
+        start_p=$(echo "$input" | cut -d'-' -f1)
+        end_p=$(echo "$input" | cut -d'-' -f2)
+        seq "$start_p" "$end_p"
+    elif [[ "$input" =~ , ]]; then
+        echo "$input" | tr ',' '\n'
+    elif [[ "$input" =~ ^[0-9]+$ ]]; then
+        echo "$input"
+    else
+        echo -e "${RED}[!] Invalid port format: $input${NC}" >&2
+        exit 1
+    fi
+}
+
+
+while getopts "t:p:w:o:hv" opt; do
+    case "$opt" in
+        t) TARGET=$OPTARG ;;
+        p) PORTS=$OPTARG ;;
+        w) THREADS=$OPTARG ;;
+        o) TIMEOUT=$OPTARG ;;
+        h) usage ;;
+        v) echo "tcp-blast v$VERSION"; exit 0 ;;
+        *) usage ;;
+    esac
+done
+
+if [[ -z "$TARGET" ]] || [[ -z "$PORTS" ]]; then
+    usage
+fi
+
+banner
+
+echo -e "${BLUE}[*] Target   :${NC} ${BOLD}$TARGET${NC}"
+echo -e "${BLUE}[*] Ports    :${NC} ${BOLD}$PORTS${NC}"
+echo -e "${BLUE}[*] Threads  :${NC} ${BOLD}$THREADS${NC}"
+echo -e "${BLUE}[*] Timeout  :${NC} ${BOLD}${TIMEOUT}s${NC}"
+echo -e "---------------------------------------------"
+printf "${BOLD}%-10s  %-12s  %-10s${NC}\n" "PORT" "SERVICE" "STATUS"
+echo -e "---------------------------------------------"
+
+export TARGET TIMEOUT RED GREEN YELLOW BLUE CYAN BOLD NC
+
+START_TIME=$(date +%s)
+
+TMP_RESULTS=$(mktemp)
+parse_ports "$PORTS" | xargs -P "$THREADS" -I {} bash -c 'scan_port "$@"' _ {} | tee "$TMP_RESULTS"
+
+OPEN_COUNT=$(grep -c "OPEN" "$TMP_RESULTS" || true)
+rm -f "$TMP_RESULTS"
+
+END_TIME=$(date +%s)
+echo -e "---------------------------------------------"
+echo -e "${GREEN}${BOLD}[✓] Success: Found $OPEN_COUNT open port(s)${NC}"
+echo -e "${BLUE}[*] Total scan time: $((END_TIME - START_TIME)) seconds${NC}"
