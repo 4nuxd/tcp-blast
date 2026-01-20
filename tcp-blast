@@ -118,22 +118,31 @@ get_service() {
 
 grab_banner() {
     local port=$1
-    local banner=""
-    if [[ "$port" == "80" || "$port" == "8080" || "$port" == "8000" ]]; then
-        banner=$(timeout 1 bash -c "exec 3<>/dev/tcp/$TARGET/$port; echo -e 'HEAD / HTTP/1.1\r\nhost: $TARGET\r\nConnection: close\r\n\r\n' >&3; cat <&3" 2>/dev/null | grep -i "Server:" | cut -d' ' -f2- | tr -d '\r')
+    local info=""
+    if [[ "$port" == "80" || "$port" == "8080" || "$port" == "8000" || "$port" == "8443" || "$port" == "443" ]]; then
+        if command -v curl &>/dev/null; then
+            local headers
+            headers=$(curl -I -s --connect-timeout 2 "http://$TARGET:$port" 2>/dev/null || true)
+            local server=$(echo "$headers" | grep -i "^Server:" | cut -d' ' -f2- | tr -d '\r')
+            local powered=$(echo "$headers" | grep -i "^X-Powered-By:" | cut -d' ' -f2- | tr -d '\r')
+            if [[ -n "$server" ]]; then info="$server"; fi
+            if [[ -n "$powered" ]]; then
+                if [[ -n "$info" ]]; then info="$info ($powered)"; else info="$powered"; fi
+            fi
+        else
+            info=$(timeout 1 bash -c "exec 3<>/dev/tcp/$TARGET/$port; echo -e 'HEAD / HTTP/1.1\r\nhost: $TARGET\r\nConnection: close\r\n\r\n' >&3; cat <&3" 2>/dev/null | grep -iE "^(Server|X-Powered-By):" | cut -d' ' -f2- | tr -d '\r' | paste -sd " " -)
+        fi
     fi
-    echo "$banner"
+    echo "$info" | xargs
 }
 
 scan_port() {
     local port="$1"
     if timeout "$TIMEOUT" bash -c "</dev/tcp/$TARGET/$port" &>/dev/null; then
-        local service
-        service=$(get_service "$port")
-        local banner
-        banner=$(grab_banner "$port")
-        if [[ -n "$banner" ]]; then
-            printf "${GREEN}[+] %-6s  %-12s  OPEN  ${CYAN}[%s]${NC}\n" "$port" "$service" "$banner"
+        local service=$(get_service "$port")
+        local info=$(grab_banner "$port")
+        if [[ -n "$info" ]]; then
+            printf "${GREEN}[+] %-6s  %-12s  OPEN  ${CYAN}>> %s${NC}\n" "$port" "$service" "$info"
         else
             printf "${GREEN}[+] %-6s  %-12s  OPEN${NC}\n" "$port" "$service"
         fi
