@@ -119,25 +119,27 @@ get_service() {
 grab_banner() {
     local port=$1
     local info=""
-    if [[ "$port" =~ ^(80|81|443|3000|5000|8000|8080|8081|8111|8443|8888|9000|9090|10000)$ ]]; then
-        if command -v curl &>/dev/null; then
-            local resp
-            resp=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" -I 2>/dev/null || true)
+    if command -v curl &>/dev/null; then
+        local resp
+        resp=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" -I 2>/dev/null || true)
+        if [[ -n "$resp" ]]; then
             local server=$(echo "$resp" | grep -i "^Server:" | cut -d' ' -f2- | tr -d '\r' | xargs)
             
             local body
-            body=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" 2>/dev/null | tr '\n' ' ' | head -c 2000 || true)
+            body=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" 2>/dev/null | tr '\n' ' ' | head -c 5000 || true)
             
-            local title=$(echo "$body" | grep -oiP '(?<=<title>).*?(?=</title>)' | xargs || true)
-            local ver=$(echo "$body" | grep -oiP 'Version\s*[0-9.]+' | head -n 1 | xargs || true)
+            local title=$(echo "$body" | grep -oiP '(?<=<title>).*?(?=</title>)' | head -n 1 | sed 's/&mdash;/—/g; s/&amp;/\&/g' | xargs || true)
+            
+            local ver=$(echo "$body" | grep -oiP 'Version[^0-9]*[0-9]+\.[0-9.]+' | head -n 1 | grep -oiP '[0-9]+\.[0-9.]+' | xargs || true)
 
             if [[ -n "$title" ]]; then
                 info="$title"
-                if [[ -n "$ver" ]]; then info="$info ($ver)"; fi
+                if [[ -n "$ver" ]]; then info="$info (v$ver)"; fi
             elif [[ -n "$server" ]]; then
                 info="$server"
+                if [[ -n "$ver" ]]; then info="$info (v$ver)"; fi
             elif [[ -n "$ver" ]]; then
-                info="$ver"
+                info="v$ver"
             fi
         fi
     fi
