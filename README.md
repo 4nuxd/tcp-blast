@@ -26,6 +26,7 @@
 - 🚀 **Extreme Speed**: Parallelized scanning using `xargs` with configurable thread counts.
 - 📦 **Zero Dependencies**: Requires only Bash, `timeout`, and `xargs`.
 - 🔍 **Service Detection**: Automatically identifies common services (SSH, HTTP, MySQL, etc.).
+- 🌐 **Web Server Verification**: Probes web ports to detect server headers (e.g., Nginx, Apache).
 - 📊 **Professional Output**: Real-time streaming results in a structured table format.
 - 🧵 **Scalable Threads**: Configurable up to 5000 threads for aggressive enumeration.
 - 🛠 **CLI Interface**: Robust command-line flags for automation and efficiency.
