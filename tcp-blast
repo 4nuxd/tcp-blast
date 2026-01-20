@@ -116,16 +116,31 @@ get_service() {
     esac
 }
 
+grab_banner() {
+    local port=$1
+    local banner=""
+    if [[ "$port" == "80" || "$port" == "8080" || "$port" == "8000" ]]; then
+        banner=$(timeout 1 bash -c "exec 3<>/dev/tcp/$TARGET/$port; echo -e 'HEAD / HTTP/1.1\r\nhost: $TARGET\r\nConnection: close\r\n\r\n' >&3; cat <&3" 2>/dev/null | grep -i "Server:" | cut -d' ' -f2- | tr -d '\r')
+    fi
+    echo "$banner"
+}
+
 scan_port() {
     local port="$1"
     if timeout "$TIMEOUT" bash -c "</dev/tcp/$TARGET/$port" &>/dev/null; then
         local service
         service=$(get_service "$port")
-        printf "${GREEN}[+] %-6s  %-12s  OPEN${NC}\n" "$port" "$service"
+        local banner
+        banner=$(grab_banner "$port")
+        if [[ -n "$banner" ]]; then
+            printf "${GREEN}[+] %-6s  %-12s  OPEN  ${CYAN}[%s]${NC}\n" "$port" "$service" "$banner"
+        else
+            printf "${GREEN}[+] %-6s  %-12s  OPEN${NC}\n" "$port" "$service"
+        fi
     fi
 }
 
-export -f scan_port get_service
+export -f scan_port get_service grab_banner
 
 parse_ports() {
     local input=$1
