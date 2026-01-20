@@ -119,18 +119,26 @@ get_service() {
 grab_banner() {
     local port=$1
     local info=""
-    if [[ "$port" == "80" || "$port" == "8080" || "$port" == "8000" || "$port" == "8443" || "$port" == "443" ]]; then
+    if [[ "$port" =~ ^(80|81|443|3000|5000|8000|8080|8081|8111|8443|8888|9000|9090|10000)$ ]]; then
         if command -v curl &>/dev/null; then
-            local headers
-            headers=$(curl -I -s --connect-timeout 2 "http://$TARGET:$port" 2>/dev/null || true)
-            local server=$(echo "$headers" | grep -i "^Server:" | cut -d' ' -f2- | tr -d '\r')
-            local powered=$(echo "$headers" | grep -i "^X-Powered-By:" | cut -d' ' -f2- | tr -d '\r')
-            if [[ -n "$server" ]]; then info="$server"; fi
-            if [[ -n "$powered" ]]; then
-                if [[ -n "$info" ]]; then info="$info ($powered)"; else info="$powered"; fi
+            local resp
+            resp=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" -I 2>/dev/null || true)
+            local server=$(echo "$resp" | grep -i "^Server:" | cut -d' ' -f2- | tr -d '\r' | xargs)
+            
+            local body
+            body=$(curl -s -L --connect-timeout 2 --max-time 3 "http://$TARGET:$port" 2>/dev/null | tr '\n' ' ' | head -c 2000 || true)
+            
+            local title=$(echo "$body" | grep -oiP '(?<=<title>).*?(?=</title>)' | xargs || true)
+            local ver=$(echo "$body" | grep -oiP 'Version\s*[0-9.]+' | head -n 1 | xargs || true)
+
+            if [[ -n "$title" ]]; then
+                info="$title"
+                if [[ -n "$ver" ]]; then info="$info ($ver)"; fi
+            elif [[ -n "$server" ]]; then
+                info="$server"
+            elif [[ -n "$ver" ]]; then
+                info="$ver"
             fi
-        else
-            info=$(timeout 1 bash -c "exec 3<>/dev/tcp/$TARGET/$port; echo -e 'HEAD / HTTP/1.1\r\nhost: $TARGET\r\nConnection: close\r\n\r\n' >&3; cat <&3" 2>/dev/null | grep -iE "^(Server|X-Powered-By):" | cut -d' ' -f2- | tr -d '\r' | paste -sd " " -)
         fi
     fi
     echo "$info" | xargs
