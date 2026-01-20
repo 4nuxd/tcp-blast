@@ -142,9 +142,9 @@ scan_port() {
         local service=$(get_service "$port")
         local info=$(grab_banner "$port")
         if [[ -n "$info" ]]; then
-            printf "${GREEN}[+] %-6s  %-12s  OPEN  ${CYAN}>> %s${NC}\n" "$port" "$service" "$info"
+            printf "${GREEN}[+] %-5s  %-15s  %-10s  ${CYAN}%s${NC}\n" "$port" "$service" "OPEN" "$info"
         else
-            printf "${GREEN}[+] %-6s  %-12s  OPEN${NC}\n" "$port" "$service"
+            printf "${GREEN}[+] %-5s  %-15s  %-10s${NC}\n" "$port" "$service" "OPEN"
         fi
     fi
 }
@@ -190,9 +190,9 @@ echo -e "${BLUE}[*] Target   :${NC} ${BOLD}$TARGET${NC}"
 echo -e "${BLUE}[*] Ports    :${NC} ${BOLD}$PORTS${NC}"
 echo -e "${BLUE}[*] Threads  :${NC} ${BOLD}$THREADS${NC}"
 echo -e "${BLUE}[*] Timeout  :${NC} ${BOLD}${TIMEOUT}s${NC}"
-echo -e "---------------------------------------------"
-printf "${BOLD}%-10s  %-12s  %-10s${NC}\n" "PORT" "SERVICE" "STATUS"
-echo -e "---------------------------------------------"
+echo -e "------------------------------------------------------------------------"
+printf "${BOLD}%-9s  %-15s  %-10s  %-30s${NC}\n" "PORT" "SERVICE" "STATUS" "VERSION/BANNER"
+echo -e "------------------------------------------------------------------------"
 
 export TARGET TIMEOUT RED GREEN YELLOW BLUE CYAN BOLD NC
 
@@ -205,6 +205,6 @@ OPEN_COUNT=$(grep -c "OPEN" "$TMP_RESULTS" || true)
 rm -f "$TMP_RESULTS"
 
 END_TIME=$(date +%s)
-echo -e "---------------------------------------------"
+echo -e "------------------------------------------------------------------------"
 echo -e "${GREEN}${BOLD}[✓] Success: Found $OPEN_COUNT open port(s)${NC}"
 echo -e "${BLUE}[*] Total scan time: $((END_TIME - START_TIME)) seconds${NC}"
